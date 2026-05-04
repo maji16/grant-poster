@@ -165,18 +165,11 @@
     }
 
     // ─── PHOTO LOADING ───
-    // On GitHub Pages there is no proxy.php.
-    // Strategy:
-    //   1. Try loading the image directly with crossOrigin=anonymous (works if UMS sends CORS headers).
-    //   2. If that fails (CORS blocked), load WITHOUT crossOrigin so the preview still shows,
-    //      but flag it as "tainted" — canvas export will silently skip the photo.
-    //      We store the original URL separately so generateCanvas() can attempt a fresh load.
-    //
-    // In practice UMS bkums images load fine in the browser for display;
-    // the only risk is canvas taint on export, which we handle gracefully.
+    // Photo arrives as base64 from the bookmarklet (converted on the UMS page itself,
+    // same origin = no CORS issue). Stored in sessionStorage to avoid URL length limits.
+    // Falls back to direct URL load if no base64 is available.
 
-    let currentPhotoUrl = '';   // original URL, used by generateCanvas()
-    let photoIsTainted  = false;
+    let currentPhotoUrl = '';
 
     function loadPhoto() {
         const photoUrl = document.getElementById('in_photo').value.trim();
@@ -185,45 +178,37 @@
         const warning  = document.getElementById('photo-warning');
 
         currentPhotoUrl = photoUrl;
-        photoIsTainted  = false;
         warning.style.display = 'none';
 
         if (!photoUrl) { wrapper.style.display = 'none'; return; }
 
-        // Attempt 1: CORS-anonymous (needed for canvas export)
-        img.crossOrigin = 'anonymous';
-        img.src = '';               // reset
-        img.src = photoUrl;
+        // Check if bookmarklet stored a base64 version in sessionStorage
+        const b64key = 'ums_photo_b64';
+        const stored = sessionStorage.getItem(b64key);
+
+        if (stored && stored.startsWith('data:image')) {
+            // Use the base64 directly — no CORS, canvas export works perfectly
+            img.removeAttribute('crossorigin');
+            img.src = stored;
+        } else {
+            // Manual URL entry — try direct load (preview only if CORS blocked)
+            img.crossOrigin = 'anonymous';
+            img.src = '';
+            img.src = photoUrl;
+        }
 
         img.onload = () => {
             const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
             wrapper.style.width   = w + 'px';
             wrapper.style.height  = h + 'px';
             wrapper.style.display = 'block';
-            photoIsTainted = false;
             warning.style.display = 'none';
             updatePreview();
         };
 
         img.onerror = () => {
-            // Attempt 2: no crossOrigin — preview only, canvas will be tainted
-            const fallback = new Image();
-            fallback.onload = () => {
-                img.removeAttribute('crossorigin');
-                img.src = photoUrl;
-                const { w, h } = calcPhotoDims(fallback.naturalWidth, fallback.naturalHeight);
-                wrapper.style.width   = w + 'px';
-                wrapper.style.height  = h + 'px';
-                wrapper.style.display = 'block';
-                photoIsTainted = true;
-                warning.style.display = 'block';
-                updatePreview();
-            };
-            fallback.onerror = () => {
-                alert('Failed to load photo. Please check the URL.');
-                wrapper.style.display = 'none';
-            };
-            fallback.src = photoUrl;
+            wrapper.style.display = 'none';
+            document.getElementById('msg').textContent = 'Gambar tidak dapat dimuatkan.';
         };
     }
 
@@ -338,11 +323,16 @@
             ctx.drawImage(bg, 0, 0, 991, 700);
 
             // ── PHOTO ──
+            // Prefer base64 from sessionStorage (set by bookmarklet on UMS page — CORS-safe)
+            // Falls back to direct URL only if no base64 available
             const wrapper = document.getElementById('p-photo-wrapper');
             if (wrapper.style.display !== 'none' && currentPhotoUrl) {
                 try {
-                    // Always attempt a fresh crossOrigin load for canvas export
-                    const photo = await loadImage(currentPhotoUrl);
+                    const b64stored = sessionStorage.getItem('ums_photo_b64');
+                    const photoSrc = (b64stored && b64stored.startsWith('data:image'))
+                        ? b64stored
+                        : document.getElementById('p-photo').src;
+                    const photo = await loadImage(photoSrc);
                     const { w: sw, h: sh } = calcPhotoDims(photo.naturalWidth, photo.naturalHeight);
                     const sx = 941 - sw;
                     const sy = PHOTO_TOP;
@@ -563,16 +553,19 @@
             
             if (faculty) document.getElementById('in_fac').value = faculty;
             
+            // Photo: bookmarklet stores base64 in sessionStorage keyed by photo URL
+            // This avoids all CORS issues — the image was converted on the UMS page itself
             if (photo) {
                 document.getElementById('in_photo').value = photo;
-                loadPhoto();
+                // Small delay to let sessionStorage write from bookmarklet settle
+                setTimeout(() => loadPhoto(), 100);
             }
             
             updatePreview();
             
             setTimeout(() => {
-                alert('✅ Staff data loaded!\n\nNow add:\n• Funder\n• Project Title\n• Amount\n\nThen download!');
-            }, 500);
+                alert('✅ Data staf dimuatkan!\n\nSila tambah:\n• Pendana\n• Tajuk Projek\n• Jumlah Geran\n\nKemudian muat turun!');
+            }, 600);
             
             window.history.replaceState({}, document.title, window.location.pathname);
         }
