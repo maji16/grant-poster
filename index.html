@@ -165,52 +165,67 @@
     }
 
     // ─── PHOTO LOADING ───
-    // Photo arrives as base64 from the bookmarklet (converted on the UMS page itself,
-    // same origin = no CORS issue). Stored in sessionStorage to avoid URL length limits.
-    // Falls back to direct URL load if no base64 is available.
-
     let currentPhotoUrl = '';
 
-    function loadPhoto() {
-        const photoUrl = document.getElementById('in_photo').value.trim();
-        const wrapper  = document.getElementById('p-photo-wrapper');
-        const img      = document.getElementById('p-photo');
-        const warning  = document.getElementById('photo-warning');
+    function loadPhotoFromSrc(src) {
+        const wrapper = document.getElementById('p-photo-wrapper');
+        const img     = document.getElementById('p-photo');
+        document.getElementById('photo-warning').style.display = 'none';
 
-        currentPhotoUrl = photoUrl;
-        warning.style.display = 'none';
-
-        if (!photoUrl) { wrapper.style.display = 'none'; return; }
-
-        // Check if bookmarklet stored a base64 version in sessionStorage
-        const b64key = 'ums_photo_b64';
-        const stored = sessionStorage.getItem(b64key);
-
-        if (stored && stored.startsWith('data:image')) {
-            // Use the base64 directly — no CORS, canvas export works perfectly
-            img.removeAttribute('crossorigin');
-            img.src = stored;
-        } else {
-            // Manual URL entry — try direct load (preview only if CORS blocked)
-            img.crossOrigin = 'anonymous';
-            img.src = '';
-            img.src = photoUrl;
-        }
+        img.removeAttribute('crossorigin');
+        img.src = src;
 
         img.onload = () => {
             const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
             wrapper.style.width   = w + 'px';
             wrapper.style.height  = h + 'px';
             wrapper.style.display = 'block';
-            warning.style.display = 'none';
             updatePreview();
         };
-
         img.onerror = () => {
             wrapper.style.display = 'none';
-            document.getElementById('msg').textContent = 'Gambar tidak dapat dimuatkan.';
         };
     }
+
+    function loadPhoto() {
+        const photoUrl = document.getElementById('in_photo').value.trim();
+        const wrapper  = document.getElementById('p-photo-wrapper');
+        document.getElementById('photo-warning').style.display = 'none';
+
+        currentPhotoUrl = photoUrl;
+
+        if (!photoUrl) { wrapper.style.display = 'none'; return; }
+
+        // If a base64 was already received via postMessage, use it
+        if (window._umsPhotoB64 && window._umsPhotoB64.startsWith('data:image')) {
+            loadPhotoFromSrc(window._umsPhotoB64);
+        } else {
+            // Manual URL entry fallback — try direct (preview only if CORS blocked)
+            const img = document.getElementById('p-photo');
+            img.crossOrigin = 'anonymous';
+            img.src = '';
+            img.src = photoUrl;
+            img.onload = () => {
+                const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
+                wrapper.style.width   = w + 'px';
+                wrapper.style.height  = h + 'px';
+                wrapper.style.display = 'block';
+                updatePreview();
+            };
+            img.onerror = () => { wrapper.style.display = 'none'; };
+        }
+    }
+
+    // ─── LISTEN FOR BASE64 PHOTO FROM BOOKMARKLET ───
+    // Bookmarklet opens this page, waits for it to load, then sends base64 via postMessage.
+    // This crosses the tab boundary cleanly — no sessionStorage, no proxy needed.
+    window.addEventListener('message', function(e) {
+        if (!e.data || e.data.type !== 'UMS_PHOTO_B64') return;
+        const b64 = e.data.base64;
+        if (!b64 || !b64.startsWith('data:image')) return;
+        window._umsPhotoB64 = b64;
+        loadPhotoFromSrc(b64);
+    });
 
     function getSelectedDate() {
         const val = document.getElementById('in_date').value;
@@ -323,14 +338,13 @@
             ctx.drawImage(bg, 0, 0, 991, 700);
 
             // ── PHOTO ──
-            // Prefer base64 from sessionStorage (set by bookmarklet on UMS page — CORS-safe)
-            // Falls back to direct URL only if no base64 available
+            // Use base64 received via postMessage from bookmarklet (CORS-safe data: URL)
+            // Falls back to whatever src is currently in the img element
             const wrapper = document.getElementById('p-photo-wrapper');
             if (wrapper.style.display !== 'none' && currentPhotoUrl) {
                 try {
-                    const b64stored = sessionStorage.getItem('ums_photo_b64');
-                    const photoSrc = (b64stored && b64stored.startsWith('data:image'))
-                        ? b64stored
+                    const photoSrc = (window._umsPhotoB64 && window._umsPhotoB64.startsWith('data:image'))
+                        ? window._umsPhotoB64
                         : document.getElementById('p-photo').src;
                     const photo = await loadImage(photoSrc);
                     const { w: sw, h: sh } = calcPhotoDims(photo.naturalWidth, photo.naturalHeight);
