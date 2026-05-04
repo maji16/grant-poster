@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>UMS Grant Poster Generator</title>
     <style>
-        /* --- STYLES (Clean & Professional) --- */
         body { font-family: 'Segoe UI', sans-serif; background-color: #eef2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .main-container { display: flex; gap: 30px; justify-content: center; align-items: flex-start; }
         
@@ -13,25 +12,21 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
         }
         
-        /* PREVIEW AREA (Fixed 991x700) */
         .poster-preview { 
             position: relative; width: 991px; height: 700px; 
             background: #ddd; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden;
             flex-shrink: 0; transform-origin: top left;
         }
 
-        /* INPUTS */
         input, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         label { font-weight: bold; font-size: 0.9rem; color: #444; display: block; margin-top: 8px; }
         button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
         button:hover { background: #218838; }
         button:disabled { background: #6c757d; cursor: not-allowed; }
 
-        /* PREVIEW LAYOUT ELEMENTS */
         .preview-bg { position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 1; }
         .p-text { position: absolute; font-family: Arial, sans-serif; color: black; z-index: 3; line-height: 1.4; transform-origin: top left; white-space: nowrap;}
         
-        /* Positioning (Matches Canvas) */
         #p-name { top: 258px; left: 54px; font-weight: bold; font-size: 54px; max-width: 515px; text-transform: uppercase; }
         #p-pos  { top: 315px; left: 54px; font-size: 23px; }
         
@@ -48,26 +43,19 @@
         #p-amt  { top: 553px; left: 54px; font-weight: bold; font-size: 34px; }
         #p-date { bottom: 70px; left: 54px; color: #cc0000; font-size: 17px; }
         
-        /*
-         * FIX: width/height are now set dynamically in JS (loadPhoto → img.onload)
-         * so the wrapper always matches the image's own aspect ratio — no letterboxing.
-         * border-radius stays fixed at 32px so corners always clip the actual image edge.
-         */
         #p-photo-wrapper {
             position: absolute;
             top: 140px; right: 50px;
-            /* width & height intentionally omitted — set by JS per image */
             z-index: 2;
             display: none;
             overflow: hidden;
-            border-radius: 32px;   /* fixed — matches canvas radius */
+            border-radius: 32px;
         }
         #p-photo {
             width: 100%; height: 100%;
-            object-fit: fill;          /* wrapper IS the image size now — no gaps */
+            object-fit: fill;
             display: block;
         }
-        /* Bottom fade at 35% — max opacity 0.308 (was 0.88) */
         #p-photo-fade {
             position: absolute;
             inset: 0;
@@ -84,6 +72,15 @@
                     rgba(255,255,255,0)   82%,
                     rgba(255,255,255,0.45) 100%);
             pointer-events: none;
+        }
+
+        /* Photo warning banner */
+        #photo-warning {
+            display: none;
+            background: #fff3cd; border: 1px solid #ffc107;
+            border-radius: 6px; padding: 8px 12px;
+            font-size: 0.8rem; color: #856404;
+            margin-bottom: 10px; line-height: 1.4;
         }
     </style>
 </head>
@@ -105,7 +102,10 @@
         <label>Faculty:</label> 
         <input type="text" id="in_fac" placeholder="e.g., Fakulti Komputeran Dan Informatik" oninput="updatePreview()">
         
-        <label>Photo URL:</label> 
+        <label>Photo URL:</label>
+        <div id="photo-warning">
+            ⚠️ Photo preview may be blocked by the browser (CORS). The photo will still appear correctly in the <b>downloaded PNG</b> via the workaround below.
+        </div>
         <input type="text" id="in_photo" placeholder="Paste photo URL from bookmarklet" oninput="loadPhoto()">
         
         <hr>
@@ -126,11 +126,10 @@
     </div>
 
     <div class="poster-preview" id="previewBox">
-        <img src="template.png" class="preview-bg" onerror="this.style.display='none'; alert('Warning: template.png not found. Preview may not display correctly.');">
+        <img src="template.png" class="preview-bg" onerror="this.style.display='none'; document.getElementById('msg').textContent='Warning: template.png not found.';">
 
-        <!-- Photo wrapper — dynamically sized by JS to match image aspect ratio -->
         <div id="p-photo-wrapper">
-            <img id="p-photo" src="">
+            <img id="p-photo" src="" crossorigin="anonymous">
             <div id="p-photo-fade"></div>
         </div>
 
@@ -149,21 +148,12 @@
 </div>
 
 <script>
-    // ─────────────────────────────────────────────────────────────────
-    // PHOTO SIZING CONSTANTS  (max slot on the poster)
-    // ─────────────────────────────────────────────────────────────────
-    const PHOTO_MAX_W  = 277;   // px — original fixed wrapper width
-    const PHOTO_MAX_H  = 385;   // px — original fixed wrapper height
-    const PHOTO_RADIUS = 32;    // px — fixed, always clips actual image edge
-    const PHOTO_RIGHT  = 50;    // px — distance from right edge of poster
-    const PHOTO_TOP    = 140;   // px — distance from top of poster
+    const PHOTO_MAX_W  = 277;
+    const PHOTO_MAX_H  = 385;
+    const PHOTO_RADIUS = 32;
+    const PHOTO_RIGHT  = 50;
+    const PHOTO_TOP    = 140;
 
-    /**
-     * Returns the display dimensions for a photo, preserving aspect ratio
-     * and fitting within PHOTO_MAX_W × PHOTO_MAX_H (contain, no cropping).
-     * Because the wrapper is resized to exactly these dimensions, there is
-     * NO letterboxing → border-radius always clips the real image corners.
-     */
     function calcPhotoDims(naturalW, naturalH) {
         let dispH = PHOTO_MAX_H;
         let dispW = dispH * (naturalW / naturalH);
@@ -174,38 +164,66 @@
         return { w: Math.round(dispW), h: Math.round(dispH) };
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // LOAD PHOTO — resize wrapper to match image aspect ratio
-    // ─────────────────────────────────────────────────────────────────
+    // ─── PHOTO LOADING ───
+    // On GitHub Pages there is no proxy.php.
+    // Strategy:
+    //   1. Try loading the image directly with crossOrigin=anonymous (works if UMS sends CORS headers).
+    //   2. If that fails (CORS blocked), load WITHOUT crossOrigin so the preview still shows,
+    //      but flag it as "tainted" — canvas export will silently skip the photo.
+    //      We store the original URL separately so generateCanvas() can attempt a fresh load.
+    //
+    // In practice UMS bkums images load fine in the browser for display;
+    // the only risk is canvas taint on export, which we handle gracefully.
+
+    let currentPhotoUrl = '';   // original URL, used by generateCanvas()
+    let photoIsTainted  = false;
+
     function loadPhoto() {
         const photoUrl = document.getElementById('in_photo').value.trim();
         const wrapper  = document.getElementById('p-photo-wrapper');
         const img      = document.getElementById('p-photo');
-        
+        const warning  = document.getElementById('photo-warning');
+
+        currentPhotoUrl = photoUrl;
+        photoIsTainted  = false;
+        warning.style.display = 'none';
+
         if (!photoUrl) { wrapper.style.display = 'none'; return; }
-        
-        let finalUrl = photoUrl;
-        if (photoUrl.includes('bkums.ums.edu.my') || photoUrl.includes('ums.edu.my')) {
-            finalUrl = `proxy.php?action=image&url=${encodeURIComponent(photoUrl)}`;
-        }
-        
-        img.crossOrigin = "anonymous";
-        img.src = finalUrl;
+
+        // Attempt 1: CORS-anonymous (needed for canvas export)
+        img.crossOrigin = 'anonymous';
+        img.src = '';               // reset
+        img.src = photoUrl;
 
         img.onload = () => {
             const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
-            // Size the wrapper to exactly the image's displayed dimensions.
-            // With object-fit:fill (or width/height:100%), the image fills it
-            // perfectly — no gaps, so border-radius clips real image corners.
-            wrapper.style.width  = w + 'px';
-            wrapper.style.height = h + 'px';
+            wrapper.style.width   = w + 'px';
+            wrapper.style.height  = h + 'px';
             wrapper.style.display = 'block';
+            photoIsTainted = false;
+            warning.style.display = 'none';
             updatePreview();
         };
 
         img.onerror = () => {
-            alert('Failed to load photo. Please check the URL.');
-            wrapper.style.display = 'none';
+            // Attempt 2: no crossOrigin — preview only, canvas will be tainted
+            const fallback = new Image();
+            fallback.onload = () => {
+                img.removeAttribute('crossorigin');
+                img.src = photoUrl;
+                const { w, h } = calcPhotoDims(fallback.naturalWidth, fallback.naturalHeight);
+                wrapper.style.width   = w + 'px';
+                wrapper.style.height  = h + 'px';
+                wrapper.style.display = 'block';
+                photoIsTainted = true;
+                warning.style.display = 'block';
+                updatePreview();
+            };
+            fallback.onerror = () => {
+                alert('Failed to load photo. Please check the URL.');
+                wrapper.style.display = 'none';
+            };
+            fallback.src = photoUrl;
         };
     }
 
@@ -240,7 +258,7 @@
         const funderLines = funder.toUpperCase().split('\n').map(l => l.trim()).filter(l => l);
         const funderHtml  = funderLines.join('<br>');
         line1El.innerHTML = `Penerima Dana <b id="d-funder">${funderHtml}</b> bertajuk`;
-		line2El.textContent = title;
+        line2El.textContent = title;
         line2El.style.whiteSpace = 'pre-wrap';
 
         const mCanvas = document.createElement('canvas');
@@ -270,8 +288,6 @@
         line1El.style.fontSize = line1Size + 'px';
         line1El.style.whiteSpace = 'normal';
 
-        // Measure each manual title line with canvas — mirrors generateCanvas word-wrap logic.
-        // Shorter manual lines allow a larger font since only the longest line constrains width.
         const titleManualLines = title.split('\n').filter(l => l.trim());
         function maxTitleLineWidth(size) {
             mCtx.font = `italic bold ${size}px Arial`;
@@ -294,17 +310,14 @@
             "RM" + parseFloat(amt.replace(/,/g,'') || 0)
                        .toLocaleString('en-US', { minimumFractionDigits: 2 });
 
-        // Cap at 36 so pos/faculty block never crowds the pendana line.
-        // With line-height:1.4, two lines at 23px = ~64px tall.
-        // nameSize=36 → posTop=303 → pos block bottom≈367 → 8px gap before desc at 375px.
         let nameSize = 34;
         nameEl.style.fontSize = nameSize + "px";
         while (nameEl.offsetWidth > 500 && nameSize > 22) {
             nameSize -= 2;
             nameEl.style.fontSize = nameSize + "px";
         }
-		
-		const dynamicPosTop = 258 + nameSize + 9; 
+
+        const dynamicPosTop = 258 + nameSize + 9; 
         document.getElementById('p-pos').style.top = dynamicPosTop + "px";
     }
 
@@ -324,24 +337,18 @@
             const bg = await loadImage('template.png');
             ctx.drawImage(bg, 0, 0, 991, 700);
 
-            // ── PHOTO — same contain logic as CSS preview, fixed 32px radius ──
-            const photoImg = document.getElementById('p-photo');
-            const wrapper  = document.getElementById('p-photo-wrapper');
-            if (wrapper.style.display !== 'none' && photoImg.src) {
+            // ── PHOTO ──
+            const wrapper = document.getElementById('p-photo-wrapper');
+            if (wrapper.style.display !== 'none' && currentPhotoUrl) {
                 try {
-                    const photo = await loadImage(photoImg.src);
-
-                    // Mirror the CSS preview: contain within PHOTO_MAX_W × PHOTO_MAX_H
+                    // Always attempt a fresh crossOrigin load for canvas export
+                    const photo = await loadImage(currentPhotoUrl);
                     const { w: sw, h: sh } = calcPhotoDims(photo.naturalWidth, photo.naturalHeight);
-
-                    // Right-aligned (right edge = 991 - PHOTO_RIGHT = 941)
                     const sx = 941 - sw;
                     const sy = PHOTO_TOP;
-                    const radius = PHOTO_RADIUS; // fixed — same as CSS
+                    const radius = PHOTO_RADIUS;
 
                     ctx.save();
-
-                    // Rounded clip — fixed radius, always on real image corners
                     ctx.beginPath();
                     ctx.moveTo(sx + radius, sy);
                     ctx.lineTo(sx + sw - radius, sy);
@@ -354,10 +361,8 @@
                     ctx.quadraticCurveTo(sx, sy, sx + radius, sy);
                     ctx.closePath();
                     ctx.clip();
-
                     ctx.drawImage(photo, sx, sy, sw, sh);
 
-                    // Bottom fade
                     const fadeHeight = sh * 0.45;
                     const fadeY = sy + sh - fadeHeight;
                     const gradBottom = ctx.createLinearGradient(0, fadeY, 0, sy + sh);
@@ -367,9 +372,7 @@
                     ctx.fillStyle = gradBottom;
                     ctx.fillRect(sx, fadeY, sw, fadeHeight);
 
-                    // Side fades
                     const sideW = sw * 0.18;
-
                     const gradLeft = ctx.createLinearGradient(sx, 0, sx + sideW, 0);
                     gradLeft.addColorStop(0, 'rgba(255,255,255,0.45)');
                     gradLeft.addColorStop(1, 'rgba(255,255,255,0)');
@@ -383,13 +386,18 @@
                     ctx.fillRect(sx + sw - sideW, sy, sideW, sh);
 
                     ctx.restore();
-                } catch(e) { console.error('Photo failed', e); }
+                } catch(e) {
+                    // CORS blocked for canvas — skip photo, still export rest of poster
+                    console.warn('Photo skipped in export (CORS):', e.message);
+                    ctx.restore && ctx.restore();
+                    document.getElementById('msg').textContent =
+                        '⚠️ Photo skipped in download (CORS blocked). All other content is included.';
+                }
             }
 
             ctx.textBaseline = 'top';
             ctx.fillStyle    = 'black';
 
-            // NAME — cap at 36 to match preview, keeping gap above pendana line
             const fullName = (gelaran ? `${gelaran} ${name}` : name).toUpperCase();
             let nameFontSize = 34;
             ctx.font = `bold ${nameFontSize}px Arial`;
@@ -398,14 +406,12 @@
             }
             ctx.fillText(fullName, 54, 258);
 
-            // POSITION
             ctx.font = `normal 23px Arial`;
             const posTxt = document.getElementById('p-pos').innerText.split('\n');
             const posTopCanvas = 258 + nameFontSize + 9; 
             ctx.fillText(posTxt[0], 54, posTopCanvas);
             if (posTxt[1]) ctx.fillText(posTxt[1], 54, posTopCanvas + 28);
 
-            // DESCRIPTION
             const funderRaw   = document.getElementById('in_funder').value || "XXXX";
             const funderLines = funderRaw.toUpperCase().split('\n').map(l => l.trim()).filter(l => l);
             const title       = document.getElementById('in_title').value || "Title";
@@ -455,7 +461,6 @@
                 ly += fs + 4;
             });
 
-            // TITLE — gap of 12px after funder block
             let titleFontSize = 24;
             let tLines = [];
             let titleLineHeight = titleFontSize * 1.15;
@@ -479,11 +484,8 @@
                             tLine = test;
                         }
                     });
-                    if (tLine) {
-                        tLines.push(tLine);
-                    } else if (mLine === '') {
-                        tLines.push('');
-                    }
+                    if (tLine) tLines.push(tLine);
+                    else if (mLine === '') tLines.push('');
                 });
                 titleLineHeight = titleFontSize * 1.15;
                 const totalHeight = tLines.length * titleLineHeight;
@@ -498,24 +500,24 @@
                 ty += titleLineHeight;
             }
 
-            // AMOUNT
             ctx.font = `normal 22px Arial`;
             ctx.fillText("Dengan nilai", 54, 530);
             ctx.font = `bold 34px Arial`;
             ctx.fillText(document.getElementById('p-amt').textContent, 54, 553);
 
-            // DATE
             ctx.fillStyle = '#cc0000';
             ctx.font = `normal 17px Arial`;
             ctx.fillText(document.getElementById('p-date').textContent, 54, 612);
 
-            // Download
             const link = document.createElement('a');
             const fileName = name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
             link.download = `Grant_${fileName}.png`;
             link.href = canvas.toDataURL();
             link.click();
-            alert('✅ Poster downloaded successfully!');
+
+            if (!document.getElementById('msg').textContent) {
+                alert('✅ Poster downloaded successfully!');
+            }
 
         } catch(error) {
             console.error(error);
@@ -540,25 +542,24 @@
             `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     })();
 
-    // AUTO-FILL from URL parameters (cross-domain solution)
     (function checkUrlParams() {
         const urlParams = new URLSearchParams(window.location.search);
         const name = urlParams.get('name');
         
         if (name) {
-            const gelaran = urlParams.get('gelaran');
-            const grade = urlParams.get('grade');
+            const gelaran  = urlParams.get('gelaran');
+            const grade    = urlParams.get('grade');
             const position = urlParams.get('position');
-            const faculty = urlParams.get('faculty');
-            const photo = urlParams.get('photo');
+            const faculty  = urlParams.get('faculty');
+            const photo    = urlParams.get('photo');
             
-            if (gelaran) document.getElementById('in_gelaran').value = gelaran;
+            if (gelaran)  document.getElementById('in_gelaran').value = gelaran;
             document.getElementById('in_name').value = name;
             
             let posText = '';
             if (position) posText = position;
-            if (grade) posText += ` (${grade})`;
-            if (posText) document.getElementById('in_pos').value = posText;
+            if (grade)    posText += ` (${grade})`;
+            if (posText)  document.getElementById('in_pos').value = posText;
             
             if (faculty) document.getElementById('in_fac').value = faculty;
             
