@@ -165,16 +165,18 @@
     }
 
     // ─── PHOTO LOADING ───
-    let currentPhotoUrl = '';
+    // Base64 photo arrives from the bookmarklet via postMessage handshake.
+    // Poster page signals ready → bookmarklet sends photo → poster loads it.
+    // Because photo is converted on UMS page (same origin), canvas export works perfectly.
 
-    function loadPhotoFromSrc(src) {
+    let currentPhotoUrl = '';
+    window._umsPhotoB64 = null;
+
+    function applyPhoto(src) {
         const wrapper = document.getElementById('p-photo-wrapper');
         const img     = document.getElementById('p-photo');
         document.getElementById('photo-warning').style.display = 'none';
-
         img.removeAttribute('crossorigin');
-        img.src = src;
-
         img.onload = () => {
             const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
             wrapper.style.width   = w + 'px';
@@ -182,50 +184,56 @@
             wrapper.style.display = 'block';
             updatePreview();
         };
-        img.onerror = () => {
-            wrapper.style.display = 'none';
-        };
+        img.onerror = () => { wrapper.style.display = 'none'; };
+        img.src = src;
     }
 
     function loadPhoto() {
         const photoUrl = document.getElementById('in_photo').value.trim();
-        const wrapper  = document.getElementById('p-photo-wrapper');
-        document.getElementById('photo-warning').style.display = 'none';
-
         currentPhotoUrl = photoUrl;
-
-        if (!photoUrl) { wrapper.style.display = 'none'; return; }
-
-        // If a base64 was already received via postMessage, use it
-        if (window._umsPhotoB64 && window._umsPhotoB64.startsWith('data:image')) {
-            loadPhotoFromSrc(window._umsPhotoB64);
+        document.getElementById('photo-warning').style.display = 'none';
+        if (!photoUrl) { document.getElementById('p-photo-wrapper').style.display = 'none'; return; }
+        if (window._umsPhotoB64) {
+            applyPhoto(window._umsPhotoB64);
         } else {
-            // Manual URL entry fallback — try direct (preview only if CORS blocked)
+            // fallback for manually typed URL
             const img = document.getElementById('p-photo');
             img.crossOrigin = 'anonymous';
-            img.src = '';
-            img.src = photoUrl;
+            img.src = ''; img.src = photoUrl;
             img.onload = () => {
                 const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
-                wrapper.style.width   = w + 'px';
-                wrapper.style.height  = h + 'px';
+                const wrapper = document.getElementById('p-photo-wrapper');
+                wrapper.style.width = w+'px'; wrapper.style.height = h+'px';
                 wrapper.style.display = 'block';
                 updatePreview();
             };
-            img.onerror = () => { wrapper.style.display = 'none'; };
+            img.onerror = () => { document.getElementById('p-photo-wrapper').style.display='none'; };
         }
     }
 
-    // ─── LISTEN FOR BASE64 PHOTO FROM BOOKMARKLET ───
-    // Bookmarklet opens this page, waits for it to load, then sends base64 via postMessage.
-    // This crosses the tab boundary cleanly — no sessionStorage, no proxy needed.
+    // ─── HANDSHAKE: signal ready, receive photo ───
+    // 1. Page sends POSTER_READY to opener (the UMS tab that ran the bookmarklet)
+    // 2. Bookmarklet hears it and sends back UMS_PHOTO_B64
+    // 3. Page receives base64, stores it, applies to preview
     window.addEventListener('message', function(e) {
-        if (!e.data || e.data.type !== 'UMS_PHOTO_B64') return;
-        const b64 = e.data.base64;
-        if (!b64 || !b64.startsWith('data:image')) return;
-        window._umsPhotoB64 = b64;
-        loadPhotoFromSrc(b64);
+        if (!e.data) return;
+        if (e.data.type === 'UMS_PHOTO_B64') {
+            const b64 = e.data.base64;
+            if (b64 && b64.startsWith('data:image')) {
+                window._umsPhotoB64 = b64;
+                applyPhoto(b64);
+            }
+        }
     });
+
+    // Signal to opener that we are ready to receive the photo
+    function signalReady() {
+        if (window.opener && !window.opener.closed) {
+            try { window.opener.postMessage({ type: 'POSTER_READY' }, '*'); } catch(e) {}
+        }
+    }
+    if (document.readyState === 'complete') { signalReady(); }
+    else { window.addEventListener('load', signalReady); }
 
     function getSelectedDate() {
         const val = document.getElementById('in_date').value;
@@ -533,9 +541,11 @@
 
     function loadImage(src) {
         return new Promise((resolve, reject) => {
-            const i = new Image(); i.crossOrigin = "anonymous";
+            const i = new Image();
+            // Don't set crossOrigin for data: URLs — it causes errors in some browsers
+            if (!src.startsWith('data:')) i.crossOrigin = 'anonymous';
             i.onload  = () => resolve(i);
-            i.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+            i.onerror = () => reject(new Error('Failed to load image: ' + src.substring(0,60)));
             i.src = src;
         });
     }
