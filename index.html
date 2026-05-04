@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>UMS Grant Poster Generator</title>
+    <style>
+        /* --- STYLES (Clean & Professional) --- */
+        body { font-family: 'Segoe UI', sans-serif; background-color: #eef2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .main-container { display: flex; gap: 30px; justify-content: center; align-items: flex-start; }
+        
+        .form-container { 
+            background: white; padding: 25px; border-radius: 12px; width: 350px; flex-shrink: 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+        }
+        
+        /* PREVIEW AREA (Fixed 991x700) */
+        .poster-preview { 
+            position: relative; width: 991px; height: 700px; 
+            background: #ddd; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden;
+            flex-shrink: 0; transform-origin: top left;
+        }
+
+        /* INPUTS */
+        input, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        label { font-weight: bold; font-size: 0.9rem; color: #444; display: block; margin-top: 8px; }
+        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+        button:hover { background: #218838; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+
+        /* PREVIEW LAYOUT ELEMENTS */
+        .preview-bg { position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 1; }
+        .p-text { position: absolute; font-family: Arial, sans-serif; color: black; z-index: 3; line-height: 1.4; transform-origin: top left; white-space: nowrap;}
+        
+        /* Positioning (Matches Canvas) */
+        #p-name { top: 258px; left: 54px; font-weight: bold; font-size: 54px; max-width: 515px; text-transform: uppercase; }
+        #p-pos  { top: 315px; left: 54px; font-size: 23px; }
+        
+        #p-desc-container { 
+            position: absolute; top: 375px; left: 54px; width: 545px;
+            font-family: Arial, sans-serif; color: black; z-index: 3;
+            line-height: 1.2; overflow: hidden;
+            max-height: 150px;
+        }
+        #p-desc-line1 { display: block; white-space: normal; word-break: break-word; max-width: 545px; overflow: hidden; }
+        #p-desc-line2 { display: block; margin-top: 10px; font-weight: bold; font-style: italic; font-size: 24px; word-break: break-word; line-height: 1.15; }
+        
+        #p-val  { top: 530px; left: 54px; font-size: 22px; }
+        #p-amt  { top: 553px; left: 54px; font-weight: bold; font-size: 34px; }
+        #p-date { bottom: 70px; left: 54px; color: #cc0000; font-size: 17px; }
+        
+        /*
+         * FIX: width/height are now set dynamically in JS (loadPhoto → img.onload)
+         * so the wrapper always matches the image's own aspect ratio — no letterboxing.
+         * border-radius stays fixed at 32px so corners always clip the actual image edge.
+         */
+        #p-photo-wrapper {
+            position: absolute;
+            top: 140px; right: 50px;
+            /* width & height intentionally omitted — set by JS per image */
+            z-index: 2;
+            display: none;
+            overflow: hidden;
+            border-radius: 32px;   /* fixed — matches canvas radius */
+        }
+        #p-photo {
+            width: 100%; height: 100%;
+            object-fit: fill;          /* wrapper IS the image size now — no gaps */
+            display: block;
+        }
+        /* Bottom fade at 35% — max opacity 0.308 (was 0.88) */
+        #p-photo-fade {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(to bottom,
+                    rgba(255,255,255,0.15) 0%,
+                    rgba(255,255,255,0)   12%,
+                    rgba(255,255,255,0)   55%,
+                    rgba(255,255,255,0.193) 78%,
+                    rgba(255,255,255,0.308) 100%),
+                linear-gradient(to right,
+                    rgba(255,255,255,0.45) 0%,
+                    rgba(255,255,255,0)   18%,
+                    rgba(255,255,255,0)   82%,
+                    rgba(255,255,255,0.45) 100%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="form-container">
+        <h2>Grant Poster Generator</h2>
+
+        <label>Title (Gelaran):</label> 
+        <input type="text" id="in_gelaran" placeholder="e.g., Prof. Madya Dr." oninput="updatePreview()">
+        
+        <label>Name:</label> 
+        <input type="text" id="in_name" placeholder="e.g., Azali Bin Saudi" oninput="updatePreview()">
+        
+        <label>Position:</label> 
+        <input type="text" id="in_pos" placeholder="e.g., Profesor Madya (DS14)" oninput="updatePreview()">
+        
+        <label>Faculty:</label> 
+        <input type="text" id="in_fac" placeholder="e.g., Fakulti Komputeran Dan Informatik" oninput="updatePreview()">
+        
+        <label>Photo URL:</label> 
+        <input type="text" id="in_photo" placeholder="Paste photo URL from bookmarklet" oninput="loadPhoto()">
+        
+        <hr>
+        <label>Funder (Pendana):</label> 
+        <textarea id="in_funder" rows="2" oninput="updatePreview()" placeholder="e.g., PETRONAS&#10;or press Enter for new line"></textarea>
+        
+        <label>Project Title:</label> 
+        <textarea id="in_title" rows="3" oninput="updatePreview()" placeholder="Enter project title..."></textarea>
+        
+        <label>Amount:</label> 
+        <input type="text" id="in_amount" oninput="updatePreview()" placeholder="150,000.00">
+
+        <label>Berkuatkuasa Date:</label>
+        <input type="date" id="in_date" oninput="updatePreview()">
+
+        <button onclick="generateCanvas()">📥 Download PNG</button>
+        <div id="msg" style="margin-top:10px; color:red; font-size:0.8rem;"></div>
+    </div>
+
+    <div class="poster-preview" id="previewBox">
+        <img src="template.png" class="preview-bg" onerror="this.style.display='none'; alert('Warning: template.png not found. Preview may not display correctly.');">
+
+        <!-- Photo wrapper — dynamically sized by JS to match image aspect ratio -->
+        <div id="p-photo-wrapper">
+            <img id="p-photo" src="">
+            <div id="p-photo-fade"></div>
+        </div>
+
+        <div id="p-name" class="p-text"></div>
+        <div id="p-pos" class="p-text"></div>
+        
+        <div id="p-desc-container">
+            <span id="p-desc-line1">Penerima Dana <b id="d-funder">XXX</b> bertajuk</span>
+            <span id="p-desc-line2">Title</span>
+        </div>
+
+        <div id="p-val" class="p-text">Dengan nilai</div>
+        <div id="p-amt" class="p-text">RM0.00</div>
+        <div id="p-date" class="p-text"></div>
+    </div>
+</div>
+
+<script>
+    // ─────────────────────────────────────────────────────────────────
+    // PHOTO SIZING CONSTANTS  (max slot on the poster)
+    // ─────────────────────────────────────────────────────────────────
+    const PHOTO_MAX_W  = 277;   // px — original fixed wrapper width
+    const PHOTO_MAX_H  = 385;   // px — original fixed wrapper height
+    const PHOTO_RADIUS = 32;    // px — fixed, always clips actual image edge
+    const PHOTO_RIGHT  = 50;    // px — distance from right edge of poster
+    const PHOTO_TOP    = 140;   // px — distance from top of poster
+
+    /**
+     * Returns the display dimensions for a photo, preserving aspect ratio
+     * and fitting within PHOTO_MAX_W × PHOTO_MAX_H (contain, no cropping).
+     * Because the wrapper is resized to exactly these dimensions, there is
+     * NO letterboxing → border-radius always clips the real image corners.
+     */
+    function calcPhotoDims(naturalW, naturalH) {
+        let dispH = PHOTO_MAX_H;
+        let dispW = dispH * (naturalW / naturalH);
+        if (dispW > PHOTO_MAX_W) {
+            dispW = PHOTO_MAX_W;
+            dispH = dispW * (naturalH / naturalW);
+        }
+        return { w: Math.round(dispW), h: Math.round(dispH) };
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // LOAD PHOTO — resize wrapper to match image aspect ratio
+    // ─────────────────────────────────────────────────────────────────
+    function loadPhoto() {
+        const photoUrl = document.getElementById('in_photo').value.trim();
+        const wrapper  = document.getElementById('p-photo-wrapper');
+        const img      = document.getElementById('p-photo');
+        
+        if (!photoUrl) { wrapper.style.display = 'none'; return; }
+        
+        let finalUrl = photoUrl;
+        if (photoUrl.includes('bkums.ums.edu.my') || photoUrl.includes('ums.edu.my')) {
+            finalUrl = `proxy.php?action=image&url=${encodeURIComponent(photoUrl)}`;
+        }
+        
+        img.crossOrigin = "anonymous";
+        img.src = finalUrl;
+
+        img.onload = () => {
+            const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
+            // Size the wrapper to exactly the image's displayed dimensions.
+            // With object-fit:fill (or width/height:100%), the image fills it
+            // perfectly — no gaps, so border-radius clips real image corners.
+            wrapper.style.width  = w + 'px';
+            wrapper.style.height = h + 'px';
+            wrapper.style.display = 'block';
+            updatePreview();
+        };
+
+        img.onerror = () => {
+            alert('Failed to load photo. Please check the URL.');
+            wrapper.style.display = 'none';
+        };
+    }
+
+    function getSelectedDate() {
+        const val = document.getElementById('in_date').value;
+        if (val) { const [year, month, day] = val.split('-'); return { day, month, year }; }
+        const d = new Date();
+        return { day: String(d.getDate()).padStart(2,'0'), month: String(d.getMonth()+1).padStart(2,'0'), year: d.getFullYear() };
+    }
+
+    function updatePreview() {
+        const { day, month, year } = getSelectedDate();
+        document.getElementById('p-date').textContent = `| Berkuatkuasa : ${day}/${month}/${year}`;
+
+        const gelaran = document.getElementById('in_gelaran').value;
+        const name    = document.getElementById('in_name').value;
+        const pos     = document.getElementById('in_pos').value;
+        const fac     = document.getElementById('in_fac').value;
+        const funder  = document.getElementById('in_funder').value || "XXXX";
+        const title   = document.getElementById('in_title').value  || "Project Title";
+        const amt     = document.getElementById('in_amount').value || "0";
+
+        const fullName = gelaran ? `${gelaran} ${name}` : name;
+
+        const nameEl = document.getElementById('p-name');
+        nameEl.textContent = fullName;
+        document.getElementById('p-pos').innerHTML = `${pos}<br>${fac}`;
+
+        const line1El = document.getElementById('p-desc-line1');
+        const line2El = document.getElementById('p-desc-line2');
+
+        const funderLines = funder.toUpperCase().split('\n').map(l => l.trim()).filter(l => l);
+        const funderHtml  = funderLines.join('<br>');
+        line1El.innerHTML = `Penerima Dana <b id="d-funder">${funderHtml}</b> bertajuk`;
+		line2El.textContent = title;
+        line2El.style.whiteSpace = 'pre-wrap';
+
+        const mCanvas = document.createElement('canvas');
+        const mCtx    = mCanvas.getContext('2d');
+
+        function measureLine1AtSize(size) {
+            let maxW = 0;
+            funderLines.forEach((fl, idx) => {
+                let text;
+                if (funderLines.length === 1) {
+                    text = `Penerima Dana ${fl} bertajuk`;
+                } else if (idx === 0) {
+                    text = `Penerima Dana ${fl}`;
+                } else if (idx === funderLines.length - 1) {
+                    text = `${fl} bertajuk`;
+                } else {
+                    text = fl;
+                }
+                mCtx.font = `bold ${size}px Arial`;
+                maxW = Math.max(maxW, mCtx.measureText(text).width);
+            });
+            return maxW;
+        }
+
+        let line1Size = 24;
+        while (measureLine1AtSize(line1Size) > 545 && line1Size > 16) line1Size--;
+        line1El.style.fontSize = line1Size + 'px';
+        line1El.style.whiteSpace = 'normal';
+
+        // Measure each manual title line with canvas — mirrors generateCanvas word-wrap logic.
+        // Shorter manual lines allow a larger font since only the longest line constrains width.
+        const titleManualLines = title.split('\n').filter(l => l.trim());
+        function maxTitleLineWidth(size) {
+            mCtx.font = `italic bold ${size}px Arial`;
+            return Math.max(...titleManualLines.map(l => mCtx.measureText(l).width), 0);
+        }
+
+        let titleSize = 24;
+        while (maxTitleLineWidth(titleSize) > 545 && titleSize > 14) titleSize--;
+
+        line2El.style.fontSize = titleSize + 'px';
+        line2El.style.lineHeight = '1.15';
+
+        const descContainer = document.getElementById('p-desc-container');
+        while (descContainer.scrollHeight > 150 && titleSize > 14) {
+            titleSize -= 1;
+            line2El.style.fontSize = titleSize + 'px';
+        }
+
+        document.getElementById('p-amt').textContent =
+            "RM" + parseFloat(amt.replace(/,/g,'') || 0)
+                       .toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+        // Cap at 36 so pos/faculty block never crowds the pendana line.
+        // With line-height:1.4, two lines at 23px = ~64px tall.
+        // nameSize=36 → posTop=303 → pos block bottom≈367 → 8px gap before desc at 375px.
+        let nameSize = 34;
+        nameEl.style.fontSize = nameSize + "px";
+        while (nameEl.offsetWidth > 500 && nameSize > 22) {
+            nameSize -= 2;
+            nameEl.style.fontSize = nameSize + "px";
+        }
+		
+		const dynamicPosTop = 258 + nameSize + 9; 
+        document.getElementById('p-pos').style.top = dynamicPosTop + "px";
+    }
+
+    async function generateCanvas() {
+        const gelaran = document.getElementById('in_gelaran').value.trim();
+        const name    = document.getElementById('in_name').value.trim();
+        if (!name) { alert('Please enter a staff name!'); return; }
+
+        const btn = document.querySelector('button[onclick="generateCanvas()"]');
+        btn.disabled = true; btn.textContent = "⏳ Generating...";
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 991; canvas.height = 700;
+        const ctx = canvas.getContext('2d');
+
+        try {
+            const bg = await loadImage('template.png');
+            ctx.drawImage(bg, 0, 0, 991, 700);
+
+            // ── PHOTO — same contain logic as CSS preview, fixed 32px radius ──
+            const photoImg = document.getElementById('p-photo');
+            const wrapper  = document.getElementById('p-photo-wrapper');
+            if (wrapper.style.display !== 'none' && photoImg.src) {
+                try {
+                    const photo = await loadImage(photoImg.src);
+
+                    // Mirror the CSS preview: contain within PHOTO_MAX_W × PHOTO_MAX_H
+                    const { w: sw, h: sh } = calcPhotoDims(photo.naturalWidth, photo.naturalHeight);
+
+                    // Right-aligned (right edge = 991 - PHOTO_RIGHT = 941)
+                    const sx = 941 - sw;
+                    const sy = PHOTO_TOP;
+                    const radius = PHOTO_RADIUS; // fixed — same as CSS
+
+                    ctx.save();
+
+                    // Rounded clip — fixed radius, always on real image corners
+                    ctx.beginPath();
+                    ctx.moveTo(sx + radius, sy);
+                    ctx.lineTo(sx + sw - radius, sy);
+                    ctx.quadraticCurveTo(sx + sw, sy, sx + sw, sy + radius);
+                    ctx.lineTo(sx + sw, sy + sh - radius);
+                    ctx.quadraticCurveTo(sx + sw, sy + sh, sx + sw - radius, sy + sh);
+                    ctx.lineTo(sx + radius, sy + sh);
+                    ctx.quadraticCurveTo(sx, sy + sh, sx, sy + sh - radius);
+                    ctx.lineTo(sx, sy + radius);
+                    ctx.quadraticCurveTo(sx, sy, sx + radius, sy);
+                    ctx.closePath();
+                    ctx.clip();
+
+                    ctx.drawImage(photo, sx, sy, sw, sh);
+
+                    // Bottom fade
+                    const fadeHeight = sh * 0.45;
+                    const fadeY = sy + sh - fadeHeight;
+                    const gradBottom = ctx.createLinearGradient(0, fadeY, 0, sy + sh);
+                    gradBottom.addColorStop(0,    'rgba(255,255,255,0)');
+                    gradBottom.addColorStop(0.55, 'rgba(255,255,255,0.193)');
+                    gradBottom.addColorStop(1,    'rgba(255,255,255,0.308)');
+                    ctx.fillStyle = gradBottom;
+                    ctx.fillRect(sx, fadeY, sw, fadeHeight);
+
+                    // Side fades
+                    const sideW = sw * 0.18;
+
+                    const gradLeft = ctx.createLinearGradient(sx, 0, sx + sideW, 0);
+                    gradLeft.addColorStop(0, 'rgba(255,255,255,0.45)');
+                    gradLeft.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = gradLeft;
+                    ctx.fillRect(sx, sy, sideW, sh);
+
+                    const gradRight = ctx.createLinearGradient(sx + sw - sideW, 0, sx + sw, 0);
+                    gradRight.addColorStop(0, 'rgba(255,255,255,0)');
+                    gradRight.addColorStop(1, 'rgba(255,255,255,0.45)');
+                    ctx.fillStyle = gradRight;
+                    ctx.fillRect(sx + sw - sideW, sy, sideW, sh);
+
+                    ctx.restore();
+                } catch(e) { console.error('Photo failed', e); }
+            }
+
+            ctx.textBaseline = 'top';
+            ctx.fillStyle    = 'black';
+
+            // NAME — cap at 36 to match preview, keeping gap above pendana line
+            const fullName = (gelaran ? `${gelaran} ${name}` : name).toUpperCase();
+            let nameFontSize = 34;
+            ctx.font = `bold ${nameFontSize}px Arial`;
+            while (ctx.measureText(fullName).width > 500 && nameFontSize > 22) {
+                nameFontSize -= 2; ctx.font = `bold ${nameFontSize}px Arial`;
+            }
+            ctx.fillText(fullName, 54, 258);
+
+            // POSITION
+            ctx.font = `normal 23px Arial`;
+            const posTxt = document.getElementById('p-pos').innerText.split('\n');
+            const posTopCanvas = 258 + nameFontSize + 9; 
+            ctx.fillText(posTxt[0], 54, posTopCanvas);
+            if (posTxt[1]) ctx.fillText(posTxt[1], 54, posTopCanvas + 28);
+
+            // DESCRIPTION
+            const funderRaw   = document.getElementById('in_funder').value || "XXXX";
+            const funderLines = funderRaw.toUpperCase().split('\n').map(l => l.trim()).filter(l => l);
+            const title       = document.getElementById('in_title').value || "Title";
+            const MAX_W       = 545;
+
+            function measureFunderLine(text, size) {
+                ctx.font = `bold ${size}px Arial`;
+                return ctx.measureText(text).width;
+            }
+
+            function buildLine1Texts(fLines) {
+                if (fLines.length === 1) return [`Penerima Dana ${fLines[0]} bertajuk`];
+                return fLines.map((fl, i) => {
+                    if (i === 0)                   return `Penerima Dana ${fl}`;
+                    if (i === fLines.length - 1)   return `${fl} bertajuk`;
+                    return fl;
+                });
+            }
+
+            const line1Texts = buildLine1Texts(funderLines);
+            let fs = 24;
+            while (fs > 16) {
+                const maxLineW = Math.max(...line1Texts.map(t => measureFunderLine(t, fs)));
+                if (maxLineW <= MAX_W) break;
+                fs--;
+            }
+
+            function isNormalWord(word) {
+                return ['Penerima', 'Dana', 'bertajuk'].includes(word);
+            }
+
+            let ly = 375;
+            line1Texts.forEach(lineText => {
+                const words = lineText.split(' ');
+                let cx = 54;
+                words.forEach((word, i) => {
+                    if (i > 0) {
+                        ctx.font = `normal ${fs}px Arial`;
+                        cx += ctx.measureText(' ').width;
+                    }
+                    const bold = !isNormalWord(word);
+                    ctx.font = bold ? `bold ${fs}px Arial` : `normal ${fs}px Arial`;
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(word, cx, ly);
+                    cx += ctx.measureText(word).width;
+                });
+                ly += fs + 4;
+            });
+
+            // TITLE — gap of 12px after funder block
+            let titleFontSize = 24;
+            let tLines = [];
+            let titleLineHeight = titleFontSize * 1.15;
+            const TITLE_BOTTOM_LIMIT = 525;
+            let ty = ly + 12;
+
+            while (titleFontSize > 14) {
+                ctx.font = `italic bold ${titleFontSize}px Arial`;
+                tLines = [];
+                const manualLines = title.split('\n'); 
+                manualLines.forEach(mLine => {
+                    let tLine = '';
+                    const titleWords = mLine.split(' '); 
+                    titleWords.forEach(w => {
+                        if (w === '') return;
+                        const test = tLine + (tLine ? ' ' : '') + w;
+                        if (ctx.measureText(test).width > MAX_W && tLine) { 
+                            tLines.push(tLine); 
+                            tLine = w; 
+                        } else {
+                            tLine = test;
+                        }
+                    });
+                    if (tLine) {
+                        tLines.push(tLine);
+                    } else if (mLine === '') {
+                        tLines.push('');
+                    }
+                });
+                titleLineHeight = titleFontSize * 1.15;
+                const totalHeight = tLines.length * titleLineHeight;
+                if (ty + totalHeight <= TITLE_BOTTOM_LIMIT) break;
+                titleFontSize--;
+            }
+
+            ctx.font = `italic bold ${titleFontSize}px Arial`;
+            ctx.fillStyle = 'black';
+            for (const l of tLines) {
+                ctx.fillText(l, 54, ty);
+                ty += titleLineHeight;
+            }
+
+            // AMOUNT
+            ctx.font = `normal 22px Arial`;
+            ctx.fillText("Dengan nilai", 54, 530);
+            ctx.font = `bold 34px Arial`;
+            ctx.fillText(document.getElementById('p-amt').textContent, 54, 553);
+
+            // DATE
+            ctx.fillStyle = '#cc0000';
+            ctx.font = `normal 17px Arial`;
+            ctx.fillText(document.getElementById('p-date').textContent, 54, 612);
+
+            // Download
+            const link = document.createElement('a');
+            const fileName = name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+            link.download = `Grant_${fileName}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            alert('✅ Poster downloaded successfully!');
+
+        } catch(error) {
+            console.error(error);
+            alert('Failed to generate PNG: ' + error.message);
+        } finally {
+            btn.disabled = false; btn.textContent = "📥 Download PNG";
+        }
+    }
+
+    function loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const i = new Image(); i.crossOrigin = "anonymous";
+            i.onload  = () => resolve(i);
+            i.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+            i.src = src;
+        });
+    }
+
+    (function setTodayDate() {
+        const d = new Date();
+        document.getElementById('in_date').value =
+            `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+
+    // AUTO-FILL from URL parameters (cross-domain solution)
+    (function checkUrlParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const name = urlParams.get('name');
+        
+        if (name) {
+            const gelaran = urlParams.get('gelaran');
+            const grade = urlParams.get('grade');
+            const position = urlParams.get('position');
+            const faculty = urlParams.get('faculty');
+            const photo = urlParams.get('photo');
+            
+            if (gelaran) document.getElementById('in_gelaran').value = gelaran;
+            document.getElementById('in_name').value = name;
+            
+            let posText = '';
+            if (position) posText = position;
+            if (grade) posText += ` (${grade})`;
+            if (posText) document.getElementById('in_pos').value = posText;
+            
+            if (faculty) document.getElementById('in_fac').value = faculty;
+            
+            if (photo) {
+                document.getElementById('in_photo').value = photo;
+                loadPhoto();
+            }
+            
+            updatePreview();
+            
+            setTimeout(() => {
+                alert('✅ Staff data loaded!\n\nNow add:\n• Funder\n• Project Title\n• Amount\n\nThen download!');
+            }, 500);
+            
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    })();
+
+    updatePreview();
+</script>
+</body>
+</html>
