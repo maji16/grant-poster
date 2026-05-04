@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UMS Grant Poster Generator — Panduan</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0b1f3a;
+    --blue: #1a56db;
+    --blue-light: #3b82f6;
+    --gold: #f59e0b;
+    --gold-light: #fcd34d;
+    --cream: #fdf8f0;
+    --white: #ffffff;
+    --gray: #64748b;
+    --gray-light: #f1f5f9;
+    --border: rgba(11,31,58,0.1);
+    --step-done: #10b981;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--cream);
+    color: var(--navy);
+    overflow-x: hidden;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: var(--navy);
+    padding: 80px 24px 100px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 50%, rgba(26,86,219,0.25) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 60% at 80% 30%, rgba(245,158,11,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-block;
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.4);
+    color: var(--gold-light);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.15;
+    max-width: 720px;
+    margin: 0 auto 20px;
+  }
+  .hero h1 span { color: var(--gold); }
+  .hero p {
+    font-size: 17px;
+    color: rgba(255,255,255,0.65);
+    max-width: 520px;
+    margin: 0 auto 48px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* ── BOOKMARKLET DROP ZONE ── */
+  .bm-zone {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px dashed rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 32px 48px;
+    position: relative;
+    z-index: 1;
+  }
+  .bm-zone p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
+  .bm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--gold);
+    color: var(--navy);
+    font-family: 'Sora', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 28px;
+    border-radius: 12px;
+    text-decoration: none;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 20px rgba(245,158,11,0.4);
+  }
+  .bm-btn:hover { transform: scale(1.03); box-shadow: 0 6px 28px rgba(245,158,11,0.55); }
+  .bm-btn:active { cursor: grabbing; transform: scale(0.98); }
+  .bm-icon { font-size: 18px; }
+  .drag-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.35);
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .drag-arrow {
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── MAIN CONTENT ── */
+  .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── SECTION ── */
+  .section { padding: 72px 0; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 12px;
+  }
+  .section h2 {
+    font-size: clamp(24px, 3vw, 34px);
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 48px;
+    line-height: 1.2;
+  }
+
+  /* ── STEPS ── */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step-item {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 0 24px;
+    position: relative;
+    padding-bottom: 40px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .step-item.visible { opacity: 1; transform: translateY(0); }
+  .step-item:last-child { padding-bottom: 0; }
+
+  /* vertical line */
+  .step-item:not(:last-child) .step-num::after {
+    content: '';
+    position: absolute;
+    left: 27px;
+    top: 56px;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--blue-light), rgba(26,86,219,0.1));
+  }
+
+  .step-num {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    background: var(--navy);
+    border: 2px solid var(--blue-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--blue-light);
+    flex-shrink: 0;
+  }
+
+  .step-body {
+    padding-top: 12px;
+  }
+  .step-body h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 8px;
+  }
+  .step-body p {
+    font-size: 15px;
+    color: var(--gray);
+    line-height: 1.7;
+    font-weight: 300;
+    margin-bottom: 12px;
+  }
+
+  /* ── SCREENSHOT/VISUAL CARDS ── */
+  .visual-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 16px;
+    overflow: hidden;
+  }
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .url-bar {
+    flex: 1;
+    background: var(--gray-light);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gray);
+  }
+  .bookmark-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--gray-light);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--gray);
+    margin-bottom: 12px;
+  }
+  .bookmark-pill {
+    background: var(--gold);
+    color: var(--navy);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(245,158,11,0.3);
+    animation: pulse-gold 2s ease-in-out infinite;
+  }
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
+    50% { box-shadow: 0 2px 16px rgba(245,158,11,0.6); }
+  }
+
+  /* Mock directory card */
+  .mock-profile {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #f8faff;
+    border: 1px solid #e0eaff;
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+  .mock-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1a56db, #3b82f6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .mock-info { flex: 1; }
+  .mock-name { font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 3px; }
+  .mock-pos { font-size: 12px; color: var(--gray); }
+  .mock-click-btn {
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+  }
+
+  /* Permission popup mock */
+  .permission-popup {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    position: relative;
+  }
+  .popup-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .popup-icon {
+    width: 40px;
+    height: 40px;
+    background: #eff6ff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .popup-title { font-size: 15px; font-weight: 600; color: var(--navy); }
+  .popup-sub { font-size: 12px; color: var(--gray); margin-top: 2px; }
+  .popup-body { font-size: 13px; color: var(--gray); line-height: 1.6; margin-bottom: 20px; }
+  .popup-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-allow {
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+    animation: pulse-blue 2s ease-in-out infinite;
+  }
+  .btn-deny {
+    background: transparent;
+    color: var(--gray);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 20px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+  }
+  @keyframes pulse-blue {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(26,86,219,0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(26,86,219,0); }
+  }
+
+  /* ── PERMISSION BANNER ── */
+  .permission-banner {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 16px;
+    padding: 24px 28px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin: 0;
+  }
+  .perm-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
+  .perm-text h4 { font-size: 16px; font-weight: 600; color: #1e40af; margin-bottom: 6px; }
+  .perm-text p { font-size: 14px; color: #3b5998; line-height: 1.6; font-weight: 300; }
+  .perm-text strong { font-weight: 600; color: #1e40af; }
+
+  /* ── DIVIDER ── */
+  .divider { border: none; border-top: 1px solid var(--border); }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    padding: 32px 24px;
+    font-size: 13px;
+    font-weight: 300;
+  }
+  footer strong { color: rgba(255,255,255,0.7); font-weight: 600; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+  }
+  .float { animation: float 3s ease-in-out infinite; }
+
+  /* tag chip */
+  .chip {
+    display: inline-block;
+    background: rgba(26,86,219,0.08);
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ HERO ═══════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-tag">Universiti Malaysia Sabah</div>
+  <h1>Grant Poster Generator<br><span>untuk Staf UMS</span></h1>
+  <p>Jana poster geran profesional dalam masa beberapa saat. Maklumat staf diisi secara automatik daripada Direktori UMS.</p>
+
+  <div class="bm-zone">
+    <p>LANGKAH PERTAMA — Seret butang ini ke bar bookmark anda</p>
+    <a id="bm-link" href="#" class="bm-btn float">
+      <span class="bm-icon">📋</span>
+      UMS → Grant Poster
+    </a>
+    <div class="drag-hint">
+      <span class="drag-arrow">↑</span>
+      Seret ke bar bookmark di atas pelayar anda
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ HOW IT WORKS ═══════════════════════════════════════ -->
+<div class="container">
+  <section class="section">
+    <div class="section-label">Cara Penggunaan</div>
+    <h2>3 langkah mudah untuk jana poster</h2>
+
+    <div class="steps">
+
+      <!-- Step 1 -->
+      <div class="step-item">
+        <div class="step-num">01</div>
+        <div class="step-body">
+          <h3>Seret bookmarklet ke bar bookmark</h3>
+          <p>Di bahagian atas laman ini, seret butang kuning <strong>"UMS → Grant Poster"</strong> ke bar bookmark pelayar anda (Chrome, Edge, Firefox). Anda hanya perlu lakukan ini sekali sahaja.</p>
+          <div class="visual-card">
+            <div class="browser-bar">
+              <div class="dot dot-r"></div>
+              <div class="dot dot-y"></div>
+              <div class="dot dot-g"></div>
+              <div class="url-bar">staffdirectory.ums.edu.my</div>
+            </div>
+            <div class="bookmark-bar">
+              <span>🔖 Bookmarks:</span>
+              <span class="bookmark-pill">📋 UMS → Grant Poster</span>
+              <span style="color:#ccc;">|</span>
+              <span>Gmail</span>
+              <span>YouTube</span>
+            </div>
+            <p style="font-size:12px;color:var(--gray);text-align:center;padding:4px 0;">✓ Bookmarklet berjaya disimpan dalam bar bookmark</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-item">
+        <div class="step-num">02</div>
+        <div class="step-body">
+          <h3>Buka profil staf di Direktori UMS</h3>
+          <p>Pergi ke <strong>Direktori Staf UMS</strong> dan klik pada mana-mana staf untuk membuka profil mereka. Tunggu sehingga modal profil terbuka sepenuhnya.</p>
+          <div class="visual-card">
+            <div class="mock-profile">
+              <div class="mock-avatar">A</div>
+              <div class="mock-info">
+                <div class="mock-name">Prof. Madya Dr. Azali Bin Saudi</div>
+                <div class="mock-pos">Fakulti Komputeran Dan Informatik · DS52</div>
+              </div>
+              <button class="mock-click-btn">Lihat Profil</button>
+            </div>
+          </div>
+          <p style="margin-top:12px;">Kemudian, klik bookmarklet <span class="chip">📋 UMS → Grant Poster</span> dalam bar bookmark anda. Sistem akan membaca maklumat staf secara automatik.</p>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-item">
+        <div class="step-num">03</div>
+        <div class="step-body">
+          <h3>Benarkan akses gambar profil</h3>
+          <p>Pelayar mungkin akan menunjukkan pop-up kebenaran untuk memuatkan gambar profil staf dari pelayan UMS. <strong>Klik "Allow" atau "Benarkan"</strong> untuk memastikan gambar dipaparkan dalam poster.</p>
+
+          <div class="visual-card">
+            <div class="permission-popup">
+              <div class="popup-header">
+                <div class="popup-icon">🖼️</div>
+                <div>
+                  <div class="popup-title">Akses Gambar Diperlukan</div>
+                  <div class="popup-sub">maji16.github.io ingin memuatkan gambar dari bkums.ums.edu.my</div>
+                </div>
+              </div>
+              <div class="popup-body">
+                Gambar profil staf akan dimuatkan dari pelayan direktori UMS untuk dimasukkan ke dalam poster geran anda.
+              </div>
+              <div class="popup-actions">
+                <button class="btn-deny">Tolak</button>
+                <button class="btn-allow">✓ Benarkan (Allow)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="permission-banner" style="margin-top:16px;">
+            <div class="perm-icon">💡</div>
+            <div class="perm-text">
+              <h4>Kenapa perlu klik Allow?</h4>
+              <p>Gambar profil disimpan di pelayan UMS. Pelayar meminta kebenaran sebelum mengambil gambar dari laman lain demi keselamatan. Tiada data peribadi anda dikongsi — ia hanya membenarkan gambar dipaparkan dalam poster.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── FINAL STEP ── -->
+  <section class="section">
+    <div class="section-label">Langkah Akhir</div>
+    <h2>Lengkapkan maklumat geran & muat turun</h2>
+    <p style="font-size:15px;color:var(--gray);line-height:1.7;font-weight:300;margin-bottom:32px;">
+      Setelah maklumat staf diisi secara automatik, tambah butiran geran dan poster sedia untuk dimuat turun.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:20px;">
+        <div style="font-size:24px;margin-bottom:10px;">🏦</div>
+        <div style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:4px;">Pendana (Funder)</div>
+        <div style="font-size:13px;color:var(--gray);font-weight:300;">Nama badan yang membiayai geran, contoh: PETRONAS, MOHE, MyRA</div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:20px;">
+        <div style="font-size:24px;margin-bottom:10px;">📄</div>
+        <div style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:4px;">Tajuk Projek</div>
+        <div style="font-size:13px;color:var(--gray);font-weight:300;">Tajuk penuh projek penyelidikan yang diluluskan</div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:20px;">
+        <div style="font-size:24px;margin-bottom:10px;">💰</div>
+        <div style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:4px;">Jumlah Geran</div>
+        <div style="font-size:13px;color:var(--gray);font-weight:300;">Nilai geran dalam Ringgit Malaysia, contoh: 150,000.00</div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:20px;">
+        <div style="font-size:24px;margin-bottom:10px;">📅</div>
+        <div style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:4px;">Tarikh Berkuatkuasa</div>
+        <div style="font-size:13px;color:var(--gray);font-weight:300;">Tarikh projek mula berkuatkuasa</div>
+      </div>
+    </div>
+
+    <div style="margin-top:32px;text-align:center;">
+      <a href="index.html" style="display:inline-flex;align-items:center;gap:10px;background:var(--navy);color:white;text-decoration:none;padding:16px 36px;border-radius:12px;font-size:15px;font-weight:600;transition:transform 0.15s,box-shadow 0.15s;box-shadow:0 4px 20px rgba(11,31,58,0.3);"
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 28px rgba(11,31,58,0.4)'"
+        onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(11,31,58,0.3)'">
+        Buka Generator Poster →
+      </a>
+    </div>
+  </section>
+</div>
+
+<!-- ═══════════════════════════════════════ FOOTER ═══════════════════════════════════════ -->
+<footer>
+  <strong>UMS Grant Poster Generator</strong> &nbsp;·&nbsp; Universiti Malaysia Sabah &nbsp;·&nbsp; Kota Kinabalu, Sabah
+</footer>
+
+<script>
+const code = `(function(){
+  var d = {};
+  var root = document.querySelector('.modal.show, .modal-dialog, .modal-content');
+  if(!root) root = document.body;
+  var img = root.querySelector('img.rounded-circle[src*="bkums"],img.rounded-circle[src*="picstf"],img[src*="bkums"],img[src*="picstf"]');
+  if(img) d.photo = img.src;
+  var nameEl = null;
+  var skipWords = ['carian','kakitangan','direktori','directory','search','staff list','senarai'];
+  var allH5 = root.querySelectorAll('h5');
+  for(var i=0;i<allH5.length;i++){
+    var t = allH5[i].textContent.trim().toLowerCase();
+    var isJunk = skipWords.some(function(w){ return t.includes(w); });
+    if(!isJunk && t.length > 2){
+      var parent = allH5[i].closest('div');
+      var hasPhoto = parent && parent.querySelector('img.rounded-circle, img[src*="picstf"], img[src*="bkums"]');
+      if(hasPhoto){ nameEl = allH5[i]; break; }
+      if(!nameEl) nameEl = allH5[i];
+    }
+  }
+  if(!nameEl){ alert('Nama staf tidak dijumpai. Pastikan profil staf sudah dibuka.'); return; }
+  var rawName = nameEl.textContent.trim().replace(/\\s+/g,' ');
+  var titles = ['PROFESOR MADYA DR.','PROFESSOR MADYA DR.','ASSOCIATE PROFESSOR DR.','PROFESOR DR.','PROFESSOR DR.','ASSOCIATE PROFESSOR','PROFESOR MADYA','PROFESSOR MADYA','PROFESOR','PROFESSOR','DR.','DATIN DR.','DATO DR.','TAN SRI DR.','TUN DR.','DATUK DR.'];
+  var up = rawName.toUpperCase();
+  var matched = '';
+  for(var k=0;k<titles.length;k++){ if(up.startsWith(titles[k])){ matched=titles[k]; break; } }
+  if(matched){ d.gelaran=rawName.substring(0,matched.length).trim(); d.name=rawName.substring(matched.length).trim(); }
+  else { d.name=rawName; }
+  var smallP = root.querySelector('p.small.font-weight-bold');
+  if(smallP){ var node=smallP.childNodes[0]; var fac=node?node.textContent.trim():smallP.textContent.split('|')[0].trim(); if(fac) d.faculty=fac; }
+  var labels = root.querySelectorAll('label');
+  for(var j=0;j<labels.length;j++){
+    var ltxt=labels[j].textContent.trim().toUpperCase();
+    if(ltxt.includes('JAWATAN HAKIKI')||ltxt.includes('JAWATAN')){
+      var h6=labels[j].parentElement&&labels[j].parentElement.querySelector('h6');
+      if(h6){ var span=h6.querySelector('span'); if(span){ d.grade=span.textContent.trim(); d.position=h6.textContent.trim().replace(/\\s+/g,' ').replace(d.grade,'').trim(); } else { d.position=h6.textContent.trim().replace(/\\s+/g,' '); } }
+      break;
+    }
+  }
+  var params=new URLSearchParams({name:d.name||'',gelaran:d.gelaran||'',grade:d.grade||'',position:d.position||'',faculty:d.faculty||'',photo:d.photo||''});
+  window.open('https://maji16.github.io/grant-poster/index.html?'+params.toString(),'_blank');
+})();`;
+
+document.getElementById('bm-link').href = 'javascript:' + encodeURIComponent(code);
+
+// Intersection Observer for step animations
+const steps = document.querySelectorAll('.step-item');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if(entry.isIntersecting){
+      setTimeout(() => entry.target.classList.add('visible'), i * 120);
+    }
+  });
+}, { threshold: 0.15 });
+steps.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
