@@ -53,9 +53,11 @@
         }
         #p-photo {
             width: 100%; height: 100%;
-            object-fit: fill;
+            object-fit: cover;
+            object-position: top center;
             display: block;
         }
+        
         #p-photo-fade {
             position: absolute;
             inset: 0;
@@ -155,14 +157,9 @@
     const PHOTO_TOP    = 140;
 
     function calcPhotoDims(naturalW, naturalH) {
-        let dispH = PHOTO_MAX_H;
-        let dispW = dispH * (naturalW / naturalH);
-        if (dispW > PHOTO_MAX_W) {
-            dispW = PHOTO_MAX_W;
-            dispH = dispW * (naturalH / naturalW);
-        }
-        return { w: Math.round(dispW), h: Math.round(dispH) };
-    }
+    // Always fixed size — crop bottom to preserve face
+    return { w: PHOTO_MAX_W, h: PHOTO_MAX_H };
+}
 
     // ─── PHOTO LOADING ───
     // Photo URL is routed through a Vercel proxy that adds CORS headers.
@@ -334,8 +331,13 @@
                     ctx.quadraticCurveTo(sx, sy, sx + radius, sy);
                     ctx.closePath();
                     ctx.clip();
-                    ctx.drawImage(photo, sx, sy, sw, sh);
-
+                   // Cover: scale photo so it fills sw×sh, anchored to top (preserves face)
+                    const scale = Math.max(sw / photo.naturalWidth, sh / photo.naturalHeight);
+                    const dw = photo.naturalWidth * scale;
+                    const dh = photo.naturalHeight * scale;
+                    const dx = sx + (sw - dw) / 2;  // center horizontally
+                    const dy = sy;                    // anchor to top — crops bottom
+                    ctx.drawImage(photo, dx, dy, dw, dh);
                     const fadeHeight = sh * 0.45;
                     const fadeY = sy + sh - fadeHeight;
                     const gradBottom = ctx.createLinearGradient(0, fadeY, 0, sy + sh);
