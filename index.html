@@ -167,7 +167,7 @@
     // ─── PHOTO LOADING ───
     // Photo URL is routed through a Vercel proxy that adds CORS headers.
     // Replace VERCEL_PROXY_URL with your deployed Vercel URL.
-    const PROXY = 'https://YOUR-PROXY.vercel.app/api/image';
+    const PROXY = 'https://ums-proxy.vercel.app/api/image';
 
     function proxyUrl(url) {
         if (url && url.includes('ums.edu.my')) {
@@ -312,8 +312,6 @@
             ctx.drawImage(bg, 0, 0, 991, 700);
 
             // ── PHOTO ──
-            // Use base64 received via postMessage from bookmarklet (CORS-safe data: URL)
-            // Falls back to whatever src is currently in the img element
             const wrapper = document.getElementById('p-photo-wrapper');
             if (wrapper.style.display !== 'none' && currentPhotoUrl) {
                 try {
@@ -548,7 +546,7 @@
             updatePreview();
             
             setTimeout(() => {
-                alert('✅ Data staf dimuatkan!\n\nSila tambah:\n• Pendana\n• Tajuk Projek\n• Jumlah Geran\n\nKemudian muat turun!!');
+                alert('✅ Data staf dimuatkan!\n\nSila tambah:\n• Pendana\n• Tajuk Projek\n• Jumlah Geran\n\nKemudian muat turun!');
             }, 600);
             
             window.history.replaceState({}, document.title, window.location.pathname);
