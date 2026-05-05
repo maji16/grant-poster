@@ -540,12 +540,9 @@
             
             if (faculty) document.getElementById('in_fac').value = faculty;
             
-            // Photo: bookmarklet stores base64 in sessionStorage keyed by photo URL
-            // This avoids all CORS issues — the image was converted on the UMS page itself
             if (photo) {
                 document.getElementById('in_photo').value = photo;
-                // Small delay to let sessionStorage write from bookmarklet settle
-                setTimeout(() => loadPhoto(), 100);
+                loadPhoto();
             }
             
             updatePreview();
