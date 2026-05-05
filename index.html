@@ -113,7 +113,7 @@
         <textarea id="in_funder" rows="2" oninput="updatePreview()" placeholder="e.g., PETRONAS&#10;or press Enter for new line"></textarea>
         
         <label>Project Title:</label> 
-        <textarea id="in_title" rows="3" oninput="updatePreview()" placeholder="Enter project title..."></textarea>
+        <textarea id="in_title" rows="3" oninput="updatePreview()" placeholder="Enter project title...&#10;&#10;💡 Tip: Press Enter to break into a new line if the title is too long."></textarea>
         
         <label>Amount:</label> 
         <input type="text" id="in_amount" oninput="updatePreview()" placeholder="150,000.00">
@@ -167,7 +167,7 @@
     // ─── PHOTO LOADING ───
     // Photo URL is routed through a Vercel proxy that adds CORS headers.
     // Replace VERCEL_PROXY_URL with your deployed Vercel URL.
-    const PROXY = 'https://ums-proxy.vercel.app/api/image';
+    const PROXY = 'https://YOUR-PROXY.vercel.app/api/image';
 
     function proxyUrl(url) {
         if (url && url.includes('ums.edu.my')) {
