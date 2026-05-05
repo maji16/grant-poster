@@ -165,18 +165,32 @@
     }
 
     // ─── PHOTO LOADING ───
-    // Base64 photo arrives from the bookmarklet via postMessage handshake.
-    // Poster page signals ready → bookmarklet sends photo → poster loads it.
-    // Because photo is converted on UMS page (same origin), canvas export works perfectly.
+    // Photo URL is routed through a Vercel proxy that adds CORS headers.
+    // Replace VERCEL_PROXY_URL with your deployed Vercel URL.
+    const PROXY = 'https://ums-proxy.vercel.app/api/image';
+
+    function proxyUrl(url) {
+        if (url && url.includes('ums.edu.my')) {
+            return PROXY + '?url=' + encodeURIComponent(url);
+        }
+        return url;
+    }
 
     let currentPhotoUrl = '';
-    window._umsPhotoB64 = null;
 
-    function applyPhoto(src) {
-        const wrapper = document.getElementById('p-photo-wrapper');
-        const img     = document.getElementById('p-photo');
+    function loadPhoto() {
+        const photoUrl = document.getElementById('in_photo').value.trim();
+        const wrapper  = document.getElementById('p-photo-wrapper');
+        const img      = document.getElementById('p-photo');
         document.getElementById('photo-warning').style.display = 'none';
-        img.removeAttribute('crossorigin');
+
+        currentPhotoUrl = photoUrl;
+        if (!photoUrl) { wrapper.style.display = 'none'; return; }
+
+        img.crossOrigin = 'anonymous';
+        img.src = '';
+        img.src = proxyUrl(photoUrl);
+
         img.onload = () => {
             const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
             wrapper.style.width   = w + 'px';
@@ -185,55 +199,7 @@
             updatePreview();
         };
         img.onerror = () => { wrapper.style.display = 'none'; };
-        img.src = src;
     }
-
-    function loadPhoto() {
-        const photoUrl = document.getElementById('in_photo').value.trim();
-        currentPhotoUrl = photoUrl;
-        document.getElementById('photo-warning').style.display = 'none';
-        if (!photoUrl) { document.getElementById('p-photo-wrapper').style.display = 'none'; return; }
-        if (window._umsPhotoB64) {
-            applyPhoto(window._umsPhotoB64);
-        } else {
-            // fallback for manually typed URL
-            const img = document.getElementById('p-photo');
-            img.crossOrigin = 'anonymous';
-            img.src = ''; img.src = photoUrl;
-            img.onload = () => {
-                const { w, h } = calcPhotoDims(img.naturalWidth, img.naturalHeight);
-                const wrapper = document.getElementById('p-photo-wrapper');
-                wrapper.style.width = w+'px'; wrapper.style.height = h+'px';
-                wrapper.style.display = 'block';
-                updatePreview();
-            };
-            img.onerror = () => { document.getElementById('p-photo-wrapper').style.display='none'; };
-        }
-    }
-
-    // ─── HANDSHAKE: signal ready, receive photo ───
-    // 1. Page sends POSTER_READY to opener (the UMS tab that ran the bookmarklet)
-    // 2. Bookmarklet hears it and sends back UMS_PHOTO_B64
-    // 3. Page receives base64, stores it, applies to preview
-    window.addEventListener('message', function(e) {
-        if (!e.data) return;
-        if (e.data.type === 'UMS_PHOTO_B64') {
-            const b64 = e.data.base64;
-            if (b64 && b64.startsWith('data:image')) {
-                window._umsPhotoB64 = b64;
-                applyPhoto(b64);
-            }
-        }
-    });
-
-    // Signal to opener that we are ready to receive the photo
-    function signalReady() {
-        if (window.opener && !window.opener.closed) {
-            try { window.opener.postMessage({ type: 'POSTER_READY' }, '*'); } catch(e) {}
-        }
-    }
-    if (document.readyState === 'complete') { signalReady(); }
-    else { window.addEventListener('load', signalReady); }
 
     function getSelectedDate() {
         const val = document.getElementById('in_date').value;
@@ -351,10 +317,7 @@
             const wrapper = document.getElementById('p-photo-wrapper');
             if (wrapper.style.display !== 'none' && currentPhotoUrl) {
                 try {
-                    const photoSrc = (window._umsPhotoB64 && window._umsPhotoB64.startsWith('data:image'))
-                        ? window._umsPhotoB64
-                        : document.getElementById('p-photo').src;
-                    const photo = await loadImage(photoSrc);
+                    const photo = await loadImage(document.getElementById('p-photo').src);
                     const { w: sw, h: sh } = calcPhotoDims(photo.naturalWidth, photo.naturalHeight);
                     const sx = 941 - sw;
                     const sy = PHOTO_TOP;
@@ -588,7 +551,7 @@
             updatePreview();
             
             setTimeout(() => {
-                alert('✅ Data staf dimuatkan!\n\nSila tambah:\n• Pendana\n• Tajuk Projek\n• Jumlah Geran\n\nKemudian muat turun!!!');
+                alert('✅ Data staf dimuatkan!\n\nSila tambah:\n• Pendana\n• Tajuk Projek\n• Jumlah Geran\n\nKemudian muat turun!');
             }, 600);
             
             window.history.replaceState({}, document.title, window.location.pathname);
